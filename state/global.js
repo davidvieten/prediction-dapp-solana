@@ -86,7 +86,6 @@ export const GlobalState = ({ children }) => {
         async (amount, price, duration, pythPriceKey) => {
             if (!masterAccount) return;
             try {
-                console.log("Running");
                 const betId = masterAccount.lastBetId .addn(1);
                 const res = await getBetAccountPk(betId);
                 console.log("Bet account pk", res);
@@ -95,7 +94,6 @@ export const GlobalState = ({ children }) => {
                 let player = await wallet.publicKey;
 
                 console.log("Bet", bet.toString(), "Master", master.toString(), "Player", player.toString());
-                //Broken here
                 const txHash = await program.methods
                     .createBet(amount, price, duration, pythPriceKey)
                     .accounts({
