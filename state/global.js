@@ -86,6 +86,7 @@ export const GlobalState = ({ children }) => {
         async (amount, price, duration, pythPriceKey) => {
             if (!masterAccount) return;
             try {
+                console.log("Running");
                 const betId = masterAccount.lastBetId .addn(1);
                 const res = await getBetAccountPk(betId);
                 console.log("Bet account pk", res);
