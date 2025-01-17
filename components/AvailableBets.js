@@ -24,13 +24,8 @@ const AvailableBets = ({
 }) => {
 
 
+  const { allBets, closeBet } = useGlobalState();
 
-  // Static
-  const allBets = []
-
-  const staticCloseBet = () => {
-    console.log("Closing bet")
-  }
   const staticClaimBet = () => {
     console.log("Claiming bet")
   }
@@ -56,7 +51,7 @@ const AvailableBets = ({
             {console.log(Object.keys(bet.state)[0].toUpperCase())}
 
             <IoMdClose className="hover:text-[#ffffff] text-2xl mr-4"
-              onClick={() => staticCloseBet(bet)}
+              onClick={() => closeBet(bet)}
             />
           </div>
         );

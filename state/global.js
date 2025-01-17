@@ -114,12 +114,35 @@ export const GlobalState = ({ children }) => {
         [masterAccount]
     )
 
+
+    const closeBet = useCallback(
+        async(bet) => {
+            if (!masterAccount) return;
+            try {
+                //transaction hash
+                const txHash = await program.methods
+                    .closeBet()
+                    .accounts({
+                        bet: await getBetAccountPk(bet.id),
+                        player: wallet.publicKeym,
+                    })
+                    .rpc();
+                    toast.success("Bet closed");
+            } catch (e) {
+                toast.error("Error closing bet");
+                console.log("Error closing bet", e.message);
+            }
+
+        }
+    );
+
     return (
         <GlobalContext.Provider
             value={{
                 masterAccount,
                 allBets,
                 createBet,
+                closeBet,
             }}
         >
             {children}

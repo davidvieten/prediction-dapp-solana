@@ -88,7 +88,6 @@ const Home = () => {
   }
 
   const {allBets, createBet} = useGlobalState()
-  console.log(createBet)
 
 
   return (
