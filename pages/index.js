@@ -82,11 +82,6 @@ const Home = () => {
   const [priceKey, setPriceKey] = useState(STOCKDATA[0].priceKey);
   const [availableStock, setAvailableStock] = useState([]);
 
-  // Static
-  const staticCreatebet = () => {
-    console.log("Creating bet")
-  }
-
   const {allBets, createBet} = useGlobalState()
 
 
@@ -224,7 +219,6 @@ const Home = () => {
                   Number(time), // duration in seconds
                   new PublicKey(priceKey) // pythPriceKey
                 )
-                staticCreatebet()
               }
               }
             />

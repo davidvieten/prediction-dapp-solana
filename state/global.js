@@ -4,138 +4,197 @@ import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 
 import { getProgram, getBetAccountPk, getMasterAccountPk } from "../utils/program";
 import toast from "react-hot-toast";
-import { set } from "@project-serum/anchor/dist/cjs/utils/features";
 
 export const GlobalContext = createContext({
-    isConnected: null,
-    wallet: null,
-    hadUserAccount: null,
-    allBets: null,
-    fetchBets: null,
+    isConnected: null, // Boolean to check if the wallet is connected
+    wallet: null, // The current wallet object
+    hadUserAccount: null, // (Not used in this example, could track if a user account exists)
+    allBets: null, // List of all bets fetched from the blockchain
+    fetchBets: null, // Function to fetch all bets
 });
 
 export const GlobalState = ({ children }) => {
-    const [program, setProgram] = useState();
-    const [isConnected, setIsConnected] = useState();
-    const [masterAccount, setMasterAccount] = useState();
-    const [allBets, setAllBets] = useState();
-    const [userBets, setUserBets] = useState();
+    // State variables
+    const [program, setProgram] = useState(); // Program instance for interacting with Solana
+    const [isConnected, setIsConnected] = useState(); // Whether a wallet is connected
+    const [masterAccount, setMasterAccount] = useState(); // Master account holding global bet info
+    const [allBets, setAllBets] = useState(); // List of all bets
+    const [userBets, setUserBets] = useState(); // (Optional) Bets specific to the user
 
-    const {connection} = useConnection();
-    const wallet = useAnchorWallet();
+    const { connection } = useConnection(); // Solana connection object
+    const wallet = useAnchorWallet(); // Wallet object from Solana wallet adapter
 
-    let connect = true;
-    console.log("Connected to:", connection.rpcEndpoint);
+    console.log("Connected to:", connection.rpcEndpoint); // Debugging: log the RPC endpoint
 
-    //Set Program
-    useEffect( () => {
-        if(connection) {
-            // If no wallet, use empty object
+    // Initialize the program instance whenever the connection or wallet changes
+    useEffect(() => {
+        if (connection) {
+            // Initialize the program with the connection and wallet
             setProgram(getProgram(connection, wallet ?? {}));
         } else {
-            setProgram(null);
+            setProgram(null); // Clear the program if no connection
         }
-        //Set program when connection or wallet changes
-    }, [connection, wallet])
+    }, [connection, wallet]);
 
-    //Check wallet connection
+    // Track the wallet's connection status
     useEffect(() => {
         setIsConnected(!!wallet?.publicKey);
-    }, [wallet])
+    }, [wallet]);
 
+    // Fetch the master account data from the blockchain
     const fetchMasterAccount = useCallback(async () => {
-        if(!program) return;
+        if (!program) return; // Return early if the program is not initialized
 
         try {
-            console.log("Is this running?");
-            const masterAcccountPk = await getMasterAccountPk();
-            const masterAccount = await program.account.master.fetch(masterAcccountPk);
-            setMasterAccount(masterAccount);
+            console.log("Fetching master account...");
+            const masterAccountPk = await getMasterAccountPk(); // Get the master account's public key
+            const masterAccount = await program.account.master.fetch(masterAccountPk); // Fetch the account data
+            setMasterAccount(masterAccount); // Store the fetched data in state
         } catch (e) {
-            console.log("Error fetching master account", e.message);
-            setMasterAccount(null);
+            console.error("Error fetching master account:", e.message);
+            setMasterAccount(null); // Reset master account on error
         }
-    }, [])
-
-    //Check for master account 
-    useEffect(() => {
-        if(!masterAccount && program) {
-        fetchMasterAccount()
-        } 
-    }, [fetchMasterAccount, masterAccount, program])
-
-    //Fetch all bets
-    const fetchBets = useCallback(async () => {
-        if(!program) return;
-        const allBetsResult = await program.account.bet.all();
-        const allBets = allBetsResult.map((bet) => bet.account);
-        setAllBets(allBets);
-
-        //If we want just users bets, we can use .filter
-         
     }, [program]);
 
+    // Automatically fetch the master account when needed
     useEffect(() => {
-        //Fetch all bets if allbets does not exist
-        if(!allBets) {
+        if (!masterAccount && program) {
+            fetchMasterAccount();
+        }
+    }, [fetchMasterAccount, masterAccount, program]);
+
+    // Fetch all bets from the blockchain
+    const fetchBets = useCallback(async () => {
+        if (!program) return; // Return early if the program is not initialized
+
+        try {
+            const allBetsResult = await program.account.bet.all(); // Fetch all bet accounts
+            const allBets = allBetsResult.map((bet) => bet.account); // Extract the account data
+            setAllBets(allBets); // Store the fetched bets in state
+        } catch (e) {
+            console.error("Error fetching bets:", e.message);
+        }
+    }, [program]);
+
+    // Automatically fetch bets when needed
+    useEffect(() => {
+        if (!allBets) {
             fetchBets();
         }
-    }, [allBets, fetchBets])
+    }, [allBets, fetchBets]);
 
-    const createBet = useCallback (
+    // Function to create a new bet
+    const createBet = useCallback(
         async (amount, price, duration, pythPriceKey) => {
-            if (!masterAccount) return;
-            try {
-                const betId = masterAccount.lastBetId .addn(1);
-                const res = await getBetAccountPk(betId);
-                console.log("Bet account pk", res);
-                let bet = await getBetAccountPk(betId);
-                let master = await getMasterAccountPk();
-                let player = await wallet.publicKey;
+            if (!masterAccount || !wallet) return; // Ensure prerequisites are met
 
-                console.log("Bet", bet.toString(), "Master", master.toString(), "Player", player.toString());
+            try {
+                console.log("Creating bet...");
+                const betId = masterAccount.lastBetId.addn(1); // Generate the next bet ID
+
                 const txHash = await program.methods
                     .createBet(amount, price, duration, pythPriceKey)
                     .accounts({
-                        bet: await getBetAccountPk(betId),
-                        master: await getMasterAccountPk(),
-                        player: wallet.publicKey,
+                        bet: await getBetAccountPk(betId), // Bet account
+                        master: await getMasterAccountPk(), // Master account
+                        player: wallet.publicKey, // Player's wallet address
                     })
-                    .rpc()
-                console.log("Transaction hash", txHash);
-                await connection.confirmTransaction(txHash);
-                console.log("Bet created", txHash);
+                    .rpc();
+
+                console.log("Bet created with transaction hash:", txHash);
                 toast.success("Bet created");
+
+                // Refresh data after creating the bet
+                fetchBets();
+                fetchMasterAccount();
             } catch (e) {
                 toast.error("Error creating bet");
-                console.log("Error creating bet", e.message);
+                console.error("Error creating bet:", e.message);
             }
         },
-        [masterAccount]
-    )
+        [masterAccount, program, wallet, fetchBets, fetchMasterAccount]
+    );
 
+    // Function to allow a player to enter a bet
+    const enterBet = useCallback(
+        async (price, bet) => {
+            if (!masterAccount || !wallet) return;
 
-    const closeBet = useCallback(
-        async(bet) => {
-            if (!masterAccount) return;
             try {
-                //transaction hash
+                const txHash = await program.methods
+                    .enterBet(price)
+                    .accounts({
+                        bet: await getBetAccountPk(bet.id), // Bet account
+                        player: wallet.publicKey, // Player's wallet address
+                    })
+                    .rpc();
+
+                console.log("Bet entered with transaction hash:", txHash);
+                toast.success("Bet entered successfully");
+            } catch (e) {
+                toast.error("Error entering bet");
+                console.error("Error entering bet:", e.message);
+            }
+        },
+        [masterAccount, program, wallet]
+    );
+
+    // Function to close a bet
+    const closeBet = useCallback(
+        async (bet) => {
+            if (!masterAccount || !wallet) return;
+
+            try {
+                console.log("Closing bet...");
                 const txHash = await program.methods
                     .closeBet()
                     .accounts({
-                        bet: await getBetAccountPk(bet.id),
-                        player: wallet.publicKeym,
+                        bet: await getBetAccountPk(bet.id), // Bet account
+                        player: wallet.publicKey, // Player's wallet address
                     })
                     .rpc();
-                    toast.success("Bet closed");
+
+                console.log("Bet closed with transaction hash:", txHash);
+                toast.success("Bet closed");
+
+                // Refresh bets after closing
+                fetchBets();
             } catch (e) {
                 toast.error("Error closing bet");
-                console.log("Error closing bet", e.message);
+                console.error("Error closing bet:", e.message);
             }
-
-        }
+        },
+        [masterAccount, program, wallet, fetchBets]
     );
 
+    // Function to claim the outcome of a bet
+    const claimBet = useCallback(
+        async (bet) => {
+            if (!masterAccount || !wallet) return;
+
+            try {
+                const txHash = await program.methods
+                    .claimBet()
+                    .accounts({
+                        bet: await getBetAccountPk(bet.id), // Bet account
+                        pyth: bet.pythPriceKey, // Pyth oracle price key
+                        playerA: bet.predictionA.player, // Player A's address
+                        playerB: bet.predictionB.player, // Player B's address
+                        signer: wallet.publicKey, // The wallet signing the transaction
+                    })
+                    .rpc();
+
+                console.log("Bet claimed with transaction hash:", txHash);
+                toast.success("Bet claimed");
+            } catch (e) {
+                toast.error("Error claiming bet");
+                console.error("Error claiming bet:", e.message);
+            }
+        },
+        [masterAccount, program, wallet]
+    );
+
+    // Provide global state and functions to children components
     return (
         <GlobalContext.Provider
             value={{
@@ -143,9 +202,11 @@ export const GlobalState = ({ children }) => {
                 allBets,
                 createBet,
                 closeBet,
+                enterBet,
+                claimBet,
             }}
         >
             {children}
         </GlobalContext.Provider>
     );
-}
+};
