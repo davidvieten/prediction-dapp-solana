@@ -4,6 +4,8 @@ import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 
 import { getProgram, getBetAccountPk, getMasterAccountPk } from "../utils/program";
 import toast from "react-hot-toast";
+import { fetchCryptoData, fetchStockData } from "../data/api"; // Import the functions
+
 
 export const GlobalContext = createContext({
     isConnected: null, // Boolean to check if the wallet is connected
@@ -20,6 +22,8 @@ export const GlobalState = ({ children }) => {
     const [masterAccount, setMasterAccount] = useState(); // Master account holding global bet info
     const [allBets, setAllBets] = useState(); // List of all bets
     const [userBets, setUserBets] = useState(); // (Optional) Bets specific to the user
+    const [stockData, setStockData] = useState([]); // To hold stock data
+    const [cryptoData, setCryptoData] = useState([]); // To hold crypto data
 
     const { connection } = useConnection(); // Solana connection object
     const wallet = useAnchorWallet(); // Wallet object from Solana wallet adapter
@@ -35,6 +39,20 @@ export const GlobalState = ({ children }) => {
             setProgram(null); // Clear the program if no connection
         }
     }, [connection, wallet]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const stocks = await fetchStockData(); // Fetch stock data
+                const cryptos = await fetchCryptoData(); // Fetch crypto data
+                setStockData(stocks); // Store in state
+                setCryptoData(cryptos); // Store in state
+            } catch (error) {
+                console.error("Error fetching data:", error);
+            }
+        };
+        fetchData();
+    }, []); //
 
     // Track the wallet's connection status
     useEffect(() => {
@@ -204,6 +222,8 @@ export const GlobalState = ({ children }) => {
                 closeBet,
                 enterBet,
                 claimBet,
+                stockData,
+                cryptoData,
             }}
         >
             {children}

@@ -1,26 +1,26 @@
-//Components
+// Components
 import Header from "../components/Header";
 import PortfolioChart from "../components/PortfolioChart";
 
-//Icons
+// Icons
 import { IoMdArrowDropdown } from "react-icons/io";
 
-//Dependencies
-import { useState, useContext, useEffect } from "react";
-import { Toaster } from 'react-hot-toast';
-import { STOCKDATA, CRYPTODATA } from "../data/asset.seed";
+// Dependencies
+import { useState, useEffect } from "react";
+import { Toaster } from "react-hot-toast";
 import DropDown from "../components/DropDown";
 import AvailableBets from "../components/AvailableBets";
 import CustomModal from "../components/CustomModal";
 
+// API Imports
+import { fetchCryptoData, fetchStockData } from "../data/api";
 
 // SOLANA IMPORTS
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "@project-serum/anchor";
 import { useGlobalState } from "../hooks";
 
-
-//Styles
+// Styles
 const styles = {
   wrapper: "w-screen h-screen flex flex-col",
   mainContainer: "w-2/3 h-full m-auto flex mt-16",
@@ -59,48 +59,68 @@ const styles = {
   currentStockPriceTitle: "text-[8px] text-[#ffffff] mt-4",
   currentStockPriceAmount: "text-lg text-[#ffffff]",
 };
-const timeTypes = [
-  "seconds",
-  "days",
-  "months"
-]
-const Home = () => {
 
+const timeTypes = ["seconds", "days", "months"];
+
+const Home = () => {
   const [showStockDropDown, setShowStockDropDown] = useState(false);
   const [showAssetDropDown, setShowAssetDropDown] = useState(true);
   const [showBetDropdown, setShowBetDropdown] = useState(false);
-  const [data, setData] = useState(STOCKDATA[0]);
-  const [guess, setGuess] = useState('');
-  const [sol, setSol] = useState('');
-  const [time, setTime] = useState('');
+
+  // Initialize state with empty arrays
+  const [cryptoData, setCryptoData] = useState([]);
+  const [stockData, setStockData] = useState([]);
+
+  const [data, setData] = useState(null);
+  const [guess, setGuess] = useState("");
+  const [sol, setSol] = useState("");
+  const [time, setTime] = useState("");
   const [timeType, setTimeType] = useState(timeTypes[0]);
   const [timeDropDown, setTimeTypeDropDown] = useState(false);
   const [selectedBet, setSelectedBet] = useState({});
   const [showModal, setShowModal] = useState(false);
-  const [stockName, setStockName] = useState(STOCKDATA[0].name);
-  const [stockPrice, setStockPrice] = useState(STOCKDATA[0].price);
-  const [priceKey, setPriceKey] = useState(STOCKDATA[0].priceKey);
+  const [stockName, setStockName] = useState("");
+  const [stockPrice, setStockPrice] = useState(0);
+  const [priceKey, setPriceKey] = useState("");
   const [availableStock, setAvailableStock] = useState([]);
 
-  const {allBets, createBet} = useGlobalState()
+  const { allBets, createBet } = useGlobalState();
 
+  // Fetch data from APIs
+  useEffect(() => {
+    const fetchData = async () => {
+      const crypto = await fetchCryptoData();
+      const stocks = await fetchStockData();
+
+      setCryptoData(crypto);
+      setStockData(stocks);
+
+      // Set default data (first stock)
+      if (stocks.length > 0) {
+        setData(stocks[0]);
+        setStockName(stocks[0].name);
+        setStockPrice(stocks[0].price);
+        setPriceKey(stocks[0].priceKey || "4Nd1mFq5Y1i44VWdGbJb7F5yA8abJeEtXGyD6cso5poU"); // Default valid key
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (!cryptoData.length || !stockData.length) {
+    return <div>Loading data...</div>;
+  }
 
   return (
     <div className={styles.wrapper}>
       <Header />
-      <Toaster
-        position="top-center"
-        reverseOrder={false}
-      />
+      <Toaster position="top-center" reverseOrder={false} />
       <div className={styles.mainContainer}>
         <div className={styles.leftMain}>
           <div className={styles.portfolioAmountContainer}>
-            <div className={styles.portfolioAmount}>
-              {data.name}
-            </div>
+            <div className={styles.portfolioAmount}>{data?.name}</div>
             <div className={styles.portfolioPercent}>
-              +0.0008(+0.57%)
-              <span className={styles.pastHour}>Past Hour</span>
+              {data?.change}% <span className={styles.pastHour}>Past Hour</span>
             </div>
           </div>
           <div>
@@ -116,39 +136,23 @@ const Home = () => {
               {stockName} <IoMdArrowDropdown />
               {showBetDropdown && (
                 <div className={styles.dropDownBets}>
-                  {STOCKDATA.filter((data) => {
-                    let availableBetStockName = availableStock.map((item) => item.stockName)
-                    if (!availableBetStockName.includes(data.name)) {
-                      return data
-                    } else {
-                      return
-                    }
-                  }).map((data) => {
-                    return (
-                      <p
-                        key={data.name}
-                        onClick={() => {
-                          setStockName(data.name);
-                          setStockPrice(data.price);
-                          setPriceKey(data.priceKey);
-                          setData(data);
-                        }}
-                      >
-                        {data.name}
-                      </p>
-                    );
-                  })}
+                  {stockData.map((stock) => (
+                    <p
+                      key={stock.name}
+                      onClick={() => {
+                        setStockName(stock.name);
+                        setStockPrice(stock.price);
+                        setPriceKey(stock.priceKey || "4Nd1mFq5Y1i44VWdGbJb7F5yA8abJeEtXGyD6cso5poU");
+                        setData(stock);
+                      }}
+                    >
+                      {stock.name}
+                    </p>
+                  ))}
                 </div>
               )}
             </div>
             <div className={styles.buyingPowerTitle}>Bet On Stocks</div>
-          </div>
-
-          <div className={styles.formButtons}>
-            <div
-            >
-              <p className="text-[#ffffff]">Current Stock Price: ${stockPrice}</p>
-            </div>
           </div>
           <form className="flex flex-col">
             <div className={styles.inputForm}>
@@ -157,9 +161,7 @@ const Home = () => {
                 placeholder={"PREDICTION"}
                 type="number"
                 required
-                onChange={(e) => {
-                  setGuess(e.target.value);
-                }}
+                onChange={(e) => setGuess(e.target.value)}
                 value={guess}
               />
               <input
@@ -167,9 +169,7 @@ const Home = () => {
                 placeholder={"SOL"}
                 type="number"
                 required
-                onChange={(e) => {
-                  setSol(e.target.value);
-                }}
+                onChange={(e) => setSol(e.target.value)}
                 value={sol}
               />
               <input
@@ -177,9 +177,7 @@ const Home = () => {
                 placeholder={timeType}
                 type="number"
                 required
-                onChange={(e) => {
-                  setTime(e.target.value);
-                }}
+                onChange={(e) => setTime(e.target.value)}
                 value={time}
               />
               <div
@@ -189,38 +187,33 @@ const Home = () => {
                 {timeType} <IoMdArrowDropdown />
                 {timeDropDown && (
                   <div className={styles.dropDownBets}>
-                    {timeTypes.map((data) => {
-                      return (
-                        <p
-                          key={data.name}
-                          onClick={() => {
-                            setTimeType(data)
-                          }}
-                        >
-                          {data}
-                        </p>
-                      );
-                    })}
+                    {timeTypes.map((type) => (
+                      <p key={type} onClick={() => setTimeType(type)}>
+                        {type}
+                      </p>
+                    ))}
                   </div>
                 )}
               </div>
             </div>
             <input
               type="submit"
-              disabled={availableStock.length === STOCKDATA.length}
+              disabled={!priceKey || availableStock.length === stockData.length}
               value="Submit"
-              className={`${styles.button
-                }${" bg-[#ef4b09] w-1/4 text-center mt-8 self-center"}`}
+              className={`${styles.button} bg-[#ef4b09] w-1/4 text-center mt-8 self-center`}
               onClick={(e) => {
-                e.preventDefault()
-                createBet(
-                  new BN(Number(sol) * LAMPORTS_PER_SOL), // bet amount in lamports(10^-9 SOL)
-                  Number(guess), // prediction price
-                  Number(time), // duration in seconds
-                  new PublicKey(priceKey) // pythPriceKey
-                )
-              }
-              }
+                e.preventDefault();
+                try {
+                  createBet(
+                    new BN(Number(sol) * LAMPORTS_PER_SOL),
+                    Number(guess),
+                    Number(time),
+                    new PublicKey(priceKey)
+                  );
+                } catch (error) {
+                  console.error("Error creating bet:", error);
+                }
+              }}
             />
           </form>
           <AvailableBets
@@ -232,14 +225,14 @@ const Home = () => {
         </div>
         <div className={styles.rightMain}>
           <DropDown
-            data={STOCKDATA}
+            data={stockData}
             setData={setData}
             showDropDown={showAssetDropDown}
             setShowDropDown={setShowAssetDropDown}
             title={"Stocks/Assets"}
           />
           <DropDown
-            data={CRYPTODATA}
+            data={cryptoData}
             setData={setData}
             showDropDown={showStockDropDown}
             setShowDropDown={setShowStockDropDown}
@@ -255,6 +248,6 @@ const Home = () => {
       />
     </div>
   );
-}
+};
 
-export default Home
+export default Home;
